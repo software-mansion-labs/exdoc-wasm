@@ -67,6 +67,20 @@ defmodule ExDoc.Markdown.Earmark do
   end
 
   # Rewrite math back to the original syntax, it's up to the user to render it
+  defp fixup({"code", [{"class", "live-elixir"}], [code], _}) do
+    id = code_id(code)
+    attrs = [{"data-code-id", id}, {"class", "elixir"}, {"style", "border:1px solid black"}]
+
+    children =
+      code
+      |> ExDoc.Markdown.CodeBlock.process()
+      |> Enum.map(fn
+        {:input, input} -> {:pre, [{"data-code-type", "input"} | attrs], input, %{}}
+        {:output, output} -> {:p, [{"data-code-type", "output"} | attrs], output, %{}}
+      end)
+
+    {:div, [{"style", "background-color:var(--blockquoteBackground);"}], children, %{}}
+  end
 
   defp fixup({"code", [{"class", "math-inline"}], [content], _}) do
     "$#{content}$"
@@ -164,5 +178,11 @@ defmodule ExDoc.Markdown.Earmark do
 
   defp fixup_attr({name, value}) do
     {String.to_atom(name), value}
+  end
+
+  defp code_id(code) do
+    :md5
+    |> :crypto.hash(code)
+    |> Base.encode16(case: :lower)
   end
 end
