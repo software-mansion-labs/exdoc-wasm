@@ -6,6 +6,7 @@ defmodule ExDoc.Formatter.HTML.Assets do
     |> Path.join()
     |> Path.wildcard()
     |> Enum.map(fn path ->
+      IO.inspect(path)
       Module.put_attribute(__CALLER__.module, :external_resource, path)
       {Path.basename(path), File.read!(path)}
     end)

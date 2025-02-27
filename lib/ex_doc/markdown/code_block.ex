@@ -2,32 +2,46 @@ defmodule ExDoc.Markdown.CodeBlock do
   @spec process(code :: String) :: {input :: String, output :: String}
   def process(code) do
     case split_input_output(code) do
-      {input, ""} -> %{input: input}
-      {"", output} -> %{output: output}
-      {input, output} -> %{input: input, output: output}
+      {inputs, ""} -> [inputs: inputs]
+      {[], output} -> [output: output]
+      {inputs, output} -> [inputs: inputs, output: output]
     end
   end
 
   defp split_input_output(code) do
-    code
-    |> String.split("\n")
-    |> Enum.map(&String.trim/1)
-    |> Enum.reduce({"", ""}, fn
-      "iex> " <> line, {input, output} -> {input <> line <> "\n", output}
-      "...> " <> line, {input, output} -> {input <> line <> "\n", output}
-      line, {input, output} -> {input, output <> line <> "\n"}
-    end)
+    [output | reversed] =
+      code
+      |> String.split("\n", trim: true)
+      |> collapse_multiline()
+
+    {Enum.reverse(reversed), output}
   end
+
+  def collapse_multiline(code), do: collapse_multiline(code, [])
+
+  def collapse_multiline([], fragments), do: fragments
+
+  def collapse_multiline(["iex> " <> line | rest], fragments) do
+    collapse_multiline(rest, [line | fragments])
+  end
+
+  def collapse_multiline(["...> " <> cont | rest], [prev | fragments]) do
+    prev_fragment = prev <> "\n" <> cont
+    collapse_multiline(rest, [prev_fragment | fragments])
+  end
+
+  def collapse_multiline(output, fragments), do: [Enum.join(output, "\n") | fragments]
 end
 
 """
-iex> case {1, 2, 3} do
-...>   {4, 5, 6} ->
-...>     "This clause won't match"
-...>   {1, x, 3} ->
-...>     "This clause will match and bind x to 2 in this clause"
-...>   _ ->
-...>     "This clause would match any value"
-...> end
-"This clause will match and bind x to 2 in this clause"
+iex> enum = 1001..9999
+iex> n = 3
+iex> stream = Stream.transform(enum, 0, fn i, acc ->
+...>   if acc < n, do: {[i], acc + 1}, else: {:halt, acc}
+...> end)
+iex> stream = Stream.transform(enum, 0, fn i, acc ->
+...>   if acc < n, do: {[i], acc + 1}, else: {:halt, acc}
+...> end)
+iex> Enum.to_list(stream)
+[1001, 1002, 1003]
 """

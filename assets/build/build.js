@@ -44,6 +44,14 @@ Promise.all(
     // Clean outdir.
     await fsExtra.emptyDir(options.outdir);
 
+    const htmlOutdir = path.resolve("../formatters/html/dist");
+    for (const file of ["js/AtomVM.js", "js/AtomVM.wasm", "eval.avm"]) {
+      await fs.copyFile(
+        path.resolve(file),
+        path.resolve(htmlOutdir, path.basename(file)),
+      );
+    }
+
     await esbuild.build({
       entryNames: watchMode ? "[name]-dev" : "[name]-[hash]",
       bundle: true,
@@ -118,14 +126,6 @@ Promise.all(
         },
       ],
     });
-
-    const htmlOutdir = path.resolve("../formatters/html/dist");
-    for (const file of ["js/AtomVM.js", "js/AtomVM.wasm", "eval.avm"]) {
-      await fs.copyFile(
-        path.resolve(file),
-        path.resolve(htmlOutdir, path.basename(file)),
-      );
-    }
   }),
 ).catch((error) => {
   console.error(error);

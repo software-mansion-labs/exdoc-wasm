@@ -54,6 +54,28 @@ defmodule ExDoc.Markdown.Earmark do
     end
   end
 
+  defp f(opts) do
+    case Keyword.fetch!(opts, :type) do
+      :inputs ->
+        inputs = Keyword.fetch!(opts, :content)
+        type_attr = {"data-code-type", "input"}
+
+        for {input, index} <- Enum.with_index(inputs) do
+          index_attr = {"data-code-line", index}
+
+          iex_prompt = {:p, [index_attr], "iex>", %{}}
+          line = {:code, [type_attr, index_attr], input, %{}}
+
+          {:div, [{"class", "line"}], [iex_prompt, line], %{}}
+        end
+
+      :output ->
+        output = Keyword.fetch!(opts, :content)
+        type_attr = {"data-code-type", "output"}
+        {:p, [type_attr], output, %{}}
+    end
+  end
+
   defp fixup(list) when is_list(list) do
     fixup_list(list, [])
   end
@@ -66,22 +88,28 @@ defmodule ExDoc.Markdown.Earmark do
     fixup({tag, attrs, ast, %{}})
   end
 
-  # Rewrite math back to the original syntax, it's up to the user to render it
-  defp fixup({"code", [{"class", "live-elixir"}], [code], _}) do
-    id = code_id(code)
-    attrs = [{"data-code-id", id}, {"class", "elixir"}, {"style", "border:1px solid black"}]
+  defp fixup({"pre", _pre_attrs, [{"code", [{"class", "live-elixir"}], [code], _}], _}) do
+    id = System.unique_integer([:positive]) |> to_string() |> Base.encode16(case: :lower)
 
     children =
-      code
-      |> ExDoc.Markdown.CodeBlock.process()
-      |> Enum.map(fn
-        {:input, input} -> {:pre, [{"data-code-type", "input"} | attrs], input, %{}}
-        {:output, output} -> {:p, [{"data-code-type", "output"} | attrs], output, %{}}
-      end)
+      case ExDoc.Markdown.CodeBlock.process(code) do
+        [output: output] ->
+          f(content: output, type: :output)
 
-    {:div, [{"style", "background-color:var(--blockquoteBackground);"}], children, %{}}
+        [inputs: inputs] ->
+          f(content: inputs, type: :inputs)
+
+        [inputs: inputs, output: output] ->
+          [
+            f(content: inputs, type: :inputs),
+            f(content: output, type: :output)
+          ]
+      end
+
+    {:pre, [{"class", "elixir"}, {"data-code-id", id}], children, %{}}
   end
 
+  # Rewrite math back to the original syntax, it's up to the user to render it
   defp fixup({"code", [{"class", "math-inline"}], [content], _}) do
     "$#{content}$"
   end
@@ -178,11 +206,5 @@ defmodule ExDoc.Markdown.Earmark do
 
   defp fixup_attr({name, value}) do
     {String.to_atom(name), value}
-  end
-
-  defp code_id(code) do
-    :md5
-    |> :crypto.hash(code)
-    |> Base.encode16(case: :lower)
   end
 end

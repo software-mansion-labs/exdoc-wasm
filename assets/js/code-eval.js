@@ -1,27 +1,53 @@
 import { qsAll } from "./helpers";
 
+const ATTRS = {
+  ID: "data-code-id",
+  TYPE: "data-code-type",
+  LINE: "data-code-line",
+};
+
 let AvmEval;
 const EVAL_ELIXIR = "eval:elixir";
 const EVAL_ERLANG = "eval:erlang";
 
 window.addEventListener("exdoc:loaded", initialize);
 
+function getLiveCodeNodes() {
+  const nodes = {};
+
+  for (const node of qsAll(`pre[${ATTRS.ID}]`)) {
+    const id = node.getAttribute(ATTRS.ID);
+    const outputNode = node.querySelector(`*[${ATTRS.TYPE}="output"]`);
+    const inputNodes = [...node.querySelectorAll(".line")].map((node) => {
+      return { prompt: node.children[0], code: node.children[1] };
+    });
+
+    nodes[id] = { input: inputNodes, output: outputNode };
+  }
+
+  return nodes;
+}
+
 async function initialize() {
   AvmEval = Module;
   console.log({ AvmEval });
+  // FIXME: detect if runtime failed for whatever reason (e.g. failed loading .avm, too big .avm, etc)
 
-  for (const node of qsAll("*[data-code-id]")) {
-    const id = node.getAttribute("data-code-id");
-    const [outputNode] = qsAll(
-      `*[data-code-id="${id}"][data-code-type="output"]`,
-    );
+  const nodes = getLiveCodeNodes();
+  console.log({ nodes });
 
-    node.addEventListener("click", async () => {
-      console.log({ content: node.textContent });
-      const result = await evalCode(node.textContent, "elixir");
-      if (outputNode) {
-        outputNode.textContent = result;
-      }
+  for (const node of Object.values(nodes)) {
+    node.input.forEach(({ prompt, code }, index) => {
+      prompt.addEventListener("click", async () => {
+        // TODO: run previous steps
+        const result = await evalCode(code.textContent.trim(), "elixir");
+        if (result !== null) {
+          node.output.textContent = result;
+          prompt.setAttribute("style", "color: var(--textDetailAccent);");
+        } else {
+          prompt.setAttribute("style", "color: var(--errorBackground);");
+        }
+      });
     });
   }
 }

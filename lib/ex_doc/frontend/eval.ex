@@ -27,9 +27,13 @@ defmodule ExDoc.Eval do
       :elixir.start([], [])
     end
 
-    code
-    |> Code.eval_string([], __ENV__)
-    |> elem(0)
+    try do
+      code
+      |> Code.eval_string([], __ENV__)
+      |> elem(0)
+    rescue
+      e -> e
+    end
   end
 
   defp eval(code, {:module, :erlang}) do
@@ -74,8 +78,11 @@ defmodule ExDoc.Eval do
   end
 
   defp resolve(term, promise) do
-    value = :io_lib.format(~c"~p", [term])
-    :emscripten.promise_resolve(promise, value)
+    term
+    |> inspect(pretty: true, structs: true)
+    |> tap(&:erlang.display(&1))
+    |> :erlang.binary_to_list()
+    |> then(&:emscripten.promise_resolve(promise, &1))
   end
 
   defp split_forms(forms) do
