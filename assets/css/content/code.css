@@ -25,23 +25,51 @@
     border: 1px solid var(--codeBorder);
     text-transform: none;
     font-size: var(--text-sm);
+    overflow: auto;
 }
 
 .content-inner pre.elixir div.line {
     display: flex;
-    align-items: flex-start;
+    align-items: baseline;
 }
 
-.content-inner pre.elixir div p {
+.content-inner pre.elixir div.line > .prompt {
     margin: 0;
     padding: 0 1em;
     text-decoration: underline;
     cursor: pointer;
 }
 
-.content-inner pre.elixir p[data-code-type="output"] {
+.content-inner pre.elixir div.line > .input {
+    flex-grow: 1;
+}
+
+.content-inner pre.elixir p.output {
     margin: 0;
     padding: 0 1em;
+}
+
+.content-inner pre.elixir div.line[data-code-state="EVALUATED"] > .prompt {
+    color: var(--link-color);
+}
+
+.content-inner pre.elixir div.line[data-code-state="ERROR"] > .prompt {
+    color: var(--errorHeadingBackground);
+}
+.content-inner pre.elixir div.line > .info {
+    color: #9b9b9b;
+    align-self: flex-end;
+    font-size: 0.8em;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+}
+.content-inner pre.elixir div.line > .info-running {
+    font-size: 1.5em;
+    animation: fadeIn 1s ease infinite alternate;
 }
 
 /* .content-inner code {

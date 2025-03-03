@@ -54,25 +54,25 @@ defmodule ExDoc.Markdown.Earmark do
     end
   end
 
-  defp f(opts) do
+  defp make_live_codeblock(opts) do
     case Keyword.fetch!(opts, :type) do
       :inputs ->
         inputs = Keyword.fetch!(opts, :content)
         type_attr = {"data-code-type", "input"}
+        state_attr = {"data-code-state", "NOT_EVALUATED"}
 
         for {input, index} <- Enum.with_index(inputs) do
-          index_attr = {"data-code-line", index}
+          iex_prompt = {:code, [{"class", "prompt"}], "iex>", %{}}
+          line = {:code, [{"class", "input"}, type_attr], input, %{}}
+          info = {:code, [{"class", "info"}], "", %{}}
 
-          iex_prompt = {:p, [index_attr], "iex>", %{}}
-          line = {:code, [type_attr, index_attr], input, %{}}
-
-          {:div, [{"class", "line"}], [iex_prompt, line], %{}}
+          {:div, [{"class", "line"}, state_attr], [iex_prompt, line, info], %{}}
         end
 
       :output ->
         output = Keyword.fetch!(opts, :content)
         type_attr = {"data-code-type", "output"}
-        {:p, [type_attr], output, %{}}
+        {:p, [{"class", "output"}, type_attr], output, %{}}
     end
   end
 
@@ -94,15 +94,15 @@ defmodule ExDoc.Markdown.Earmark do
     children =
       case ExDoc.Markdown.CodeBlock.process(code) do
         [output: output] ->
-          f(content: output, type: :output)
+          make_live_codeblock(content: output, type: :output)
 
         [inputs: inputs] ->
-          f(content: inputs, type: :inputs)
+          make_live_codeblock(content: inputs, type: :inputs)
 
         [inputs: inputs, output: output] ->
           [
-            f(content: inputs, type: :inputs),
-            f(content: output, type: :output)
+            make_live_codeblock(content: inputs, type: :inputs),
+            make_live_codeblock(content: output, type: :output)
           ]
       end
 

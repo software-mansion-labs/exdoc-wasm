@@ -22,6 +22,11 @@ iex> IO.puts("Hello world from Elixir")
 ```
 
 ```live-elixir
+iex> for x <- 1..1000, do: x+1
+# :ok
+```
+
+```live-elixir
 iex> hd(1)
 iex> case 1 do
 ...>   x when hd(x) -> "Won't match"

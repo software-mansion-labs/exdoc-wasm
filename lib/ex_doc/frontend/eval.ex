@@ -1,6 +1,6 @@
 defmodule ExDoc.Eval do
   def start() do
-    Console.print("Starting interpreter...\n")
+    Console.print("Starting interpreterxxxxxx...\n")
     Process.register(self(), :main)
     loop()
   end
@@ -28,11 +28,10 @@ defmodule ExDoc.Eval do
     end
 
     try do
-      code
-      |> Code.eval_string([], __ENV__)
-      |> elem(0)
+      {result, _bindings} = Code.eval_string(code, [], __ENV__)
+      {:ok, result}
     rescue
-      e -> e
+      e -> {:error, e, __STACKTRACE__}
     end
   end
 
@@ -58,8 +57,8 @@ defmodule ExDoc.Eval do
            |> split_forms()
            |> Enum.map(parse_form)
            |> :compile.noenv_forms(compile_opts),
-         {:module, _module} <- :code.load_binary(module, ~c"nofile", module_bin) do
-      :ok
+         {:module, module} <- :code.load_binary(module, ~c"nofile", module_bin) do
+      {:ok, module}
     end
   rescue
     error -> {:error, error, __STACKTRACE__}
@@ -71,18 +70,26 @@ defmodule ExDoc.Eval do
     with {:ok, tokens, _end_location} <- :erl_scan.string(code),
          {:ok, exprs} <- :erl_parse.parse_exprs(tokens),
          {:value, value, _bindings} <- :erl_eval.exprs(exprs, []) do
-      value
+      {:ok, value}
     end
   rescue
     error -> {:error, error, __STACKTRACE__}
   end
 
-  defp resolve(term, promise) do
+  defp resolve({:ok, term}, promise) do
     term
-    |> inspect(pretty: true, structs: true)
-    |> tap(&:erlang.display(&1))
+    |> inspect(pretty: true)
     |> :erlang.binary_to_list()
     |> then(&:emscripten.promise_resolve(promise, &1))
+  end
+
+  defp resolve({:error, error, stacktrace}, promise) do
+    :erlang.display({:stacktrace, stacktrace})
+
+    error
+    |> inspect(pretty: true)
+    |> :erlang.binary_to_list()
+    |> then(&:emscripten.promise_reject(promise, &1))
   end
 
   defp split_forms(forms) do
