@@ -72,7 +72,7 @@ defmodule ExDoc.Markdown.Earmark do
       :output ->
         output = Keyword.fetch!(opts, :content)
         type_attr = {"data-code-type", "output"}
-        {:p, [{"class", "output"}, type_attr], output, %{}}
+        {:p, [{"class", "output output-initial"}, type_attr], output, %{}}
     end
   end
 

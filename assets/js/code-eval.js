@@ -88,7 +88,10 @@ async function initialize() {
           line.info.textContent = "↺";
           line.info.classList.add("info-running");
 
-          const { dtMs, result } = await setLineState(line, STATE.EVALUATING);
+          const { dtMs, result, error } = await setLineState(
+            line,
+            STATE.EVALUATING,
+          );
 
           line.info.classList.remove("info-running");
           line.info.textContent = "";
@@ -97,7 +100,15 @@ async function initialize() {
 
           clearTimeout(timeout);
           timeout = setTimeout(() => {
-            node.output.textContent = result;
+            node.output.classList.remove("output-error");
+            node.output.classList.remove("output-initial");
+
+            if (error) {
+              node.output.classList.add("output-error");
+              node.output.textContent = `Error: ${result}`;
+            } else {
+              node.output.textContent = result;
+            }
           }, RESULT_DELAY_MS);
         }
       });

@@ -47,6 +47,7 @@
 .content-inner pre.elixir p.output {
     margin: 0;
     padding: 0 1em;
+    color: var(--link-color);
 }
 
 .content-inner pre.elixir div.line[data-code-state="EVALUATED"] > .prompt {
@@ -54,11 +55,20 @@
 }
 
 .content-inner pre.elixir div.line[data-code-state="ERROR"] > .prompt {
-    color: var(--errorHeadingBackground);
+    color: #eb5757;
 }
+
+.content-inner pre.elixir p.output.output-error {
+    color: #eb5757;
+}
+
+.content-inner pre.elixir p.output.output-initial {
+    color: #9b9b9b;
+}
+
 .content-inner pre.elixir div.line > .info {
     color: #9b9b9b;
-    align-self: flex-end;
+    align-self: flex-start;
     font-size: 0.8em;
 }
 

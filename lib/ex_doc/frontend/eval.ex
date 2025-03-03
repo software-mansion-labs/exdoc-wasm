@@ -1,6 +1,6 @@
 defmodule ExDoc.Eval do
   def start() do
-    Console.print("Starting interpreterxxxxxx...\n")
+    Console.print("Starting interpreter...\n")
     Process.register(self(), :main)
     loop()
   end
