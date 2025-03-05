@@ -1,18 +1,35 @@
 defmodule ExDoc.Markdown.CodeBlock do
   @spec process(code :: String) :: {input :: String, output :: String}
   def process(code) do
+    reverse_join = fn lines ->
+      lines
+      |> Enum.reverse()
+      |> Enum.join("\n")
+    end
+
+    chunk_fun = fn
+      "iex> " <> line, {type, acc} ->
+        {:cont, {type, reverse_join.(acc)}, {:input, [line]}}
+
+      "...> " <> line, {:input, acc} ->
+        {:cont, {:input, [line | acc]}}
+
+      "# " <> line, {type, acc} ->
+        {:cont, {type, reverse_join.(acc)}, {:comment, [line]}}
+
+      line, {type, acc} ->
+        {:cont, {type, reverse_join.(acc)}, {:output, [line]}}
+    end
+
+    after_fun = fn
+      {_type, []} -> {:cont, []}
+      {type, acc} -> {:cont, {type, reverse_join.(acc)}, []}
+    end
+
     code
     |> String.split("\n", trim: true)
-    |> Enum.reduce({nil, {"", "", []}}, fn
-      "iex> " <> line, {prev_state, acc} -> transition(line, prev_state, :iex, acc)
-      "...> " <> line, {prev_state, acc} -> transition(line, prev_state, :cont, acc)
-      line, {prev_state, acc} -> transition(line, prev_state, :out, acc)
-    end)
-    |> then(fn
-      # last one always have an output to use it as a default output
-      {_state, {prompt, output, groups}} -> [{prompt, output} | groups]
-    end)
-    |> Enum.reverse()
+    |> Enum.chunk_while({nil, []}, chunk_fun, after_fun)
+    |> Enum.drop(1)
   end
 
   # first line

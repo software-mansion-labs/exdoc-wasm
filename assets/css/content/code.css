@@ -44,6 +44,12 @@
     flex-grow: 1;
 }
 
+.content-inner pre.elixir p.comment {
+    margin: 0;
+    padding: 0 1em;
+    color: #9b9b9b;
+}
+
 .content-inner pre.elixir p.output {
     margin: 0;
     padding: 0 1em;

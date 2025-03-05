@@ -32,6 +32,9 @@ function getLiveCodeNodes() {
     const outputNodes = node.querySelectorAll(`*[${ATTRS.TYPE}="output"]`);
     nodes[id] = [...node.children]
       .map((node) => {
+        if (node.getAttribute(ATTRS.TYPE) === "comment") {
+          return null;
+        }
         if (node.getAttribute(ATTRS.TYPE) === "output") {
           ++currentOutputIndex;
           return null;

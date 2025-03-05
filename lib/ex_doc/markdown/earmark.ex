@@ -74,7 +74,7 @@ defmodule ExDoc.Markdown.Earmark do
   #   end
   # end
 
-  defp make_live_input(input) do
+  defp make_live_element({:input, input}) do
     type_attr = {"data-code-type", "input"}
     state_attr = {"data-code-state", "NOT_EVALUATED"}
 
@@ -85,16 +85,16 @@ defmodule ExDoc.Markdown.Earmark do
     {:div, [{"class", "line"}, state_attr], [iex_prompt, line, info], %{}}
   end
 
-  defp make_live_output(output) do
+  defp make_live_element({:output, output}) do
     type_attr = {"data-code-type", "output"}
 
-    output =
-      output
-      |> String.split("\n")
-      |> Enum.map(&"# #{&1}")
-      |> Enum.join("\n")
+    {:p, [{"class", "output output-initial"}, type_attr], prefix_every_line(output, "# "), %{}}
+  end
 
-    {:p, [{"class", "output output-initial"}, type_attr], output, %{}}
+  defp make_live_element({:comment, comment}) do
+    type_attr = {"data-code-type", "comment"}
+
+    {:p, [{"class", "comment"}, type_attr], prefix_every_line(comment, "# "), %{}}
   end
 
   defp fixup(list) when is_list(list) do
@@ -114,16 +114,7 @@ defmodule ExDoc.Markdown.Earmark do
 
     code
     |> ExDoc.Markdown.CodeBlock.process()
-    |> Enum.flat_map(fn
-      {input, output} ->
-        [
-          make_live_input(input),
-          make_live_output(output)
-        ]
-
-      input ->
-        [make_live_input(input)]
-    end)
+    |> Enum.map(&make_live_element/1)
     |> then(&{:pre, [{"class", "elixir"}, {"data-code-id", id}], &1, %{}})
   end
 
@@ -224,5 +215,12 @@ defmodule ExDoc.Markdown.Earmark do
 
   defp fixup_attr({name, value}) do
     {String.to_atom(name), value}
+  end
+
+  defp prefix_every_line(string, prefix) do
+    string
+    |> String.split("\n")
+    |> Enum.map(&(prefix <> &1))
+    |> Enum.join("\n")
   end
 end
