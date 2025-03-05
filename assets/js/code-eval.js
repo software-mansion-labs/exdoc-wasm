@@ -13,12 +13,14 @@ const STATE = {
   EVALUATING: "EVALUATING",
 };
 
+const MESSAGE = {
+  EVAL_ELIXIR: "elixir",
+  EVAL_ERLANG: "erlang",
+};
+
 const RESULT_DELAY_MS = 120;
 
 let AvmEval;
-const EVAL_ELIXIR = "eval:elixir";
-const EVAL_ERLANG = "eval:erlang";
-
 window.addEventListener("exdoc:loaded", initialize);
 
 function getLiveCodeNodes() {
@@ -59,7 +61,7 @@ async function initialize() {
 
   const nodes = getLiveCodeNodes();
 
-  for (const node of Object.values(nodes)) {
+  for (const [blockId, node] of Object.entries(nodes)) {
     const lines = node.input;
     lines.forEach(({ prompt, code }, index) => {
       prompt.addEventListener("click", async () => {
@@ -91,6 +93,7 @@ async function initialize() {
           const { dtMs, result, error } = await setLineState(
             line,
             STATE.EVALUATING,
+            { blockId },
           );
 
           line.info.classList.remove("info-running");
@@ -116,13 +119,14 @@ async function initialize() {
   }
 }
 
-async function setLineState(line, state) {
+async function setLineState(line, state, opts) {
   line.state = state;
 
   // Other states don't have any side-effects except setting attribute
   if (state === STATE.EVALUATING) {
+    const { blockId } = opts;
     const code = line.code.textContent.trim();
-    const result = await evalCode(code, "elixir");
+    const result = await evalCode(code, "elixir", blockId);
 
     if (result.error) {
       await setLineState(line, "ERROR");
@@ -134,16 +138,16 @@ async function setLineState(line, state) {
   return null;
 }
 
-async function evalCode(code, language) {
+async function evalCode(code, language, blockId) {
   if (code === "") {
     return;
   }
 
   let command;
   if (language === "elixir") {
-    command = `${EVAL_ELIXIR}:${code}`;
+    command = `${MESSAGE.EVAL_ELIXIR}:${blockId}:${code}`;
   } else {
-    command = `${EVAL_ERLANG}:${code}`;
+    command = `${MESSAGE.EVAL_ERLANG}:${blockId}:${code}`;
   }
 
   const { result, dtMs, error } = await profile(async () =>

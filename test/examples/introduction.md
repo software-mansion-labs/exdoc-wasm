@@ -27,6 +27,13 @@ iex> for x <- 1..1000, do: x+1
 ```
 
 ```live-elixir
+iex> e = :a
+iex> g = is_atom(e)
+iex> g == true
+# true
+```
+
+```live-elixir
 iex> hd(1)
 iex> case 1 do
 ...>   x when hd(x) -> "Won't match"
