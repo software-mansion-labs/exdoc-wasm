@@ -28,28 +28,32 @@ function getLiveCodeNodes() {
 
   for (const node of qsAll(`pre[${ATTRS.ID}]`)) {
     const id = node.getAttribute(ATTRS.ID);
-    const outputNode = node.querySelector(`*[${ATTRS.TYPE}="output"]`);
-    const inputNodes = [...node.querySelectorAll(".line")].map((node) => {
-      const prompt = node.children[0];
-      const code = node.children[1];
-      const info = node.children[2];
-      return {
-        get state() {
-          return node.getAttribute(ATTRS.STATE);
-        },
-        set state(newState) {
-          node.setAttribute(ATTRS.STATE, newState);
-        },
-        prompt,
-        code,
-        info,
-      };
-    });
+    let currentOutputIndex = 0;
+    const outputNodes = node.querySelectorAll(`*[${ATTRS.TYPE}="output"]`);
+    nodes[id] = [...node.children]
+      .map((node) => {
+        if (node.getAttribute(ATTRS.TYPE) === "output") {
+          ++currentOutputIndex;
+          return null;
+        }
 
-    nodes[id] = {
-      input: inputNodes,
-      output: outputNode,
-    };
+        const prompt = node.children[0];
+        const code = node.children[1];
+        const info = node.children[2];
+        return {
+          get state() {
+            return node.getAttribute(ATTRS.STATE);
+          },
+          set state(newState) {
+            node.setAttribute(ATTRS.STATE, newState);
+          },
+          prompt,
+          code,
+          info,
+          output: outputNodes[currentOutputIndex],
+        };
+      })
+      .filter((node) => node !== null);
   }
 
   return nodes;
@@ -61,9 +65,8 @@ async function initialize() {
 
   const nodes = getLiveCodeNodes();
 
-  for (const [blockId, node] of Object.entries(nodes)) {
-    const lines = node.input;
-    lines.forEach(({ prompt, code }, index) => {
+  for (const [blockId, lines] of Object.entries(nodes)) {
+    lines.forEach(({ prompt, code, output }, index) => {
       prompt.addEventListener("click", async () => {
         if (lines.some(({ state }) => state === STATE.EVALUATING)) {
           return;
@@ -103,14 +106,14 @@ async function initialize() {
 
           clearTimeout(timeout);
           timeout = setTimeout(() => {
-            node.output.classList.remove("output-error");
-            node.output.classList.remove("output-initial");
+            output.classList.remove("output-error");
+            output.classList.remove("output-initial");
 
             if (error) {
-              node.output.classList.add("output-error");
-              node.output.textContent = `Error: ${result}`;
+              output.classList.add("output-error");
+              output.textContent = `Error: ${result}`;
             } else {
-              node.output.textContent = result;
+              output.textContent = result;
             }
           }, RESULT_DELAY_MS);
         }

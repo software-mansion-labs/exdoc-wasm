@@ -54,26 +54,47 @@ defmodule ExDoc.Markdown.Earmark do
     end
   end
 
-  defp make_live_codeblock(opts) do
-    case Keyword.fetch!(opts, :type) do
-      :inputs ->
-        inputs = Keyword.fetch!(opts, :content)
-        type_attr = {"data-code-type", "input"}
-        state_attr = {"data-code-state", "NOT_EVALUATED"}
+  # defp make_live_codeblock(opts) do
+  #   case Keyword.fetch!(opts, :type) do
+  #     :inputs ->
+  #       inputs = Keyword.fetch!(opts, :content)
+  #       type_attr = {"data-code-type", "input"}
+  #       state_attr = {"data-code-state", "NOT_EVALUATED"}
 
-        for {input, index} <- Enum.with_index(inputs) do
-          iex_prompt = {:code, [{"class", "prompt"}], "iex>", %{}}
-          line = {:code, [{"class", "input"}, type_attr], input, %{}}
-          info = {:code, [{"class", "info"}], "", %{}}
+  #       for {input, index} <- Enum.with_index(inputs) do
+  #         iex_prompt = {:span, [{"class", "prompt"}], "iex>", %{}}
+  #         line = {:span, [{"class", "input"}, type_attr], input, %{}}
+  #         info = {:span, [{"class", "info"}], "", %{}}
 
-          {:div, [{"class", "line"}, state_attr], [iex_prompt, line, info], %{}}
-        end
+  #         {:div, [{"class", "line"}, state_attr], [iex_prompt, line, info], %{}}
+  #       end
 
-      :output ->
-        output = Keyword.fetch!(opts, :content)
-        type_attr = {"data-code-type", "output"}
-        {:p, [{"class", "output output-initial"}, type_attr], output, %{}}
-    end
+  #     :output ->
+  #       output = Keyword.fetch!(opts, :content)
+  #   end
+  # end
+
+  defp make_live_input(input) do
+    type_attr = {"data-code-type", "input"}
+    state_attr = {"data-code-state", "NOT_EVALUATED"}
+
+    iex_prompt = {:span, [{"class", "prompt"}], "iex>", %{}}
+    line = {:span, [{"class", "input"}, type_attr], input, %{}}
+    info = {:span, [{"class", "info"}], "", %{}}
+
+    {:div, [{"class", "line"}, state_attr], [iex_prompt, line, info], %{}}
+  end
+
+  defp make_live_output(output) do
+    type_attr = {"data-code-type", "output"}
+
+    output =
+      output
+      |> String.split("\n")
+      |> Enum.map(&"# #{&1}")
+      |> Enum.join("\n")
+
+    {:p, [{"class", "output output-initial"}, type_attr], output, %{}}
   end
 
   defp fixup(list) when is_list(list) do
@@ -91,22 +112,19 @@ defmodule ExDoc.Markdown.Earmark do
   defp fixup({"pre", _pre_attrs, [{"code", [{"class", "live-elixir"}], [code], _}], _}) do
     id = System.unique_integer([:positive]) |> to_string() |> Base.encode16(case: :lower)
 
-    children =
-      case ExDoc.Markdown.CodeBlock.process(code) do
-        [output: output] ->
-          make_live_codeblock(content: output, type: :output)
+    code
+    |> ExDoc.Markdown.CodeBlock.process()
+    |> Enum.flat_map(fn
+      {input, output} ->
+        [
+          make_live_input(input),
+          make_live_output(output)
+        ]
 
-        [inputs: inputs] ->
-          make_live_codeblock(content: inputs, type: :inputs)
-
-        [inputs: inputs, output: output] ->
-          [
-            make_live_codeblock(content: inputs, type: :inputs),
-            make_live_codeblock(content: output, type: :output)
-          ]
-      end
-
-    {:pre, [{"class", "elixir"}, {"data-code-id", id}], children, %{}}
+      input ->
+        [make_live_input(input)]
+    end)
+    |> then(&{:pre, [{"class", "elixir"}, {"data-code-id", id}], &1, %{}})
   end
 
   # Rewrite math back to the original syntax, it's up to the user to render it

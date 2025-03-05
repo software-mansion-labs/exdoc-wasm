@@ -82,43 +82,43 @@
     animation: fadeIn 1s ease infinite alternate;
 }
 
-/* .content-inner code {
-  background-color: var(--codeBackground);
-  vertical-align: baseline;
-  border-radius: var(--borderRadius-sm);
-  padding: .1em .2em;
-  border: 1px solid var(--codeBorder);
-  text-transform: none;
-} */
+.content-inner code {
+    background-color: var(--codeBackground);
+    vertical-align: baseline;
+    border-radius: var(--borderRadius-sm);
+    padding: 0.1em 0.2em;
+    border: 1px solid var(--codeBorder);
+    text-transform: none;
+}
 
 .content-inner code.inline {
     border-radius: var(--borderRadius-sm);
     word-wrap: break-word;
 }
 
-/* .content-inner pre {
+.content-inner pre {
     margin: var(--baseLineHeight) 0;
-} */
-/*
+}
+
 .content-inner pre code {
     display: block;
     overflow-x: auto;
     white-space: inherit;
     padding: 1em;
     scrollbar-width: thin;
-} */
+}
 
-/* .content-inner pre code.output {
+.content-inner pre code.output {
     margin: 0 12px;
     max-height: 400px;
     overflow: auto;
-} */
-/*
+}
+
 .content-inner pre code.output + .copy-button {
     margin-right: 12px;
-} */
+}
 
-/* .content-inner pre code.output:before {
+.content-inner pre code.output:before {
     content: "Output";
     display: block;
     position: absolute;
@@ -133,7 +133,7 @@
     border: 1px solid var(--codeBorder);
     border-bottom: 0;
     border-radius: 2px;
-} */
+}
 
 @media screen and (max-width: 768px) {
     .content-inner > pre:has(code),

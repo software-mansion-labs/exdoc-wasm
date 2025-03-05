@@ -43,7 +43,7 @@ defmodule ExDoc.Mixfile do
       {:earmark_parser, "~> 1.4.42"},
       {:makeup_elixir, "~> 0.14 or ~> 1.0"},
       {:makeup_erlang, "~> 0.1 or ~> 1.0"},
-      {:fission_lib, path: "../elixir-atom-vm/elixir-wasm/fission_lib"},
+      {:fission_lib, path: "../elixir-atom-vm/elixir-wasm/fission_lib", runtime: false},
       # Add other makeup lexers as optional for the executable
       {:makeup_c, ">= 0.1.0", optional: true},
       {:makeup_html, ">= 0.1.0", optional: true},
