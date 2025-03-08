@@ -5,6 +5,8 @@
 - modules
 
 ```live-elixir
+# or
+# or not to or
 iex> 1 + 2
 3
 iex> 5 * 5
@@ -22,6 +24,7 @@ iex> case {1, 2, 3} do
 ...>   _ ->
 ...>     "This clause would match any value"
 ...> end
+# this is the output
 "This clause will match and bind x to 2 in this clause"
 ```
 
