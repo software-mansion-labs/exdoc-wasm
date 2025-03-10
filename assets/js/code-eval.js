@@ -43,6 +43,33 @@ function getLiveCodeNodes() {
         const prompt = node.children[0];
         const code = node.children[1];
         const info = node.children[2];
+        const output = outputNodes[currentOutputIndex];
+
+        function setOutput(result, error) {
+          output.classList.remove("output-error");
+          output.classList.remove("output-initial");
+
+          if (error) {
+            output.classList.add("output-error");
+            output.textContent = `Error: ${result}`;
+          } else {
+            output.textContent = result;
+          }
+        }
+
+        async function withLoading(fn) {
+          info.textContent = "↺";
+          info.classList.add("info-running");
+
+          const result = await fn();
+
+          info.classList.remove("info-running");
+          info.textContent = "";
+          info.textContent = `(${result.dtMs.toFixed(2)} ms)`;
+
+          return result;
+        }
+
         return {
           get state() {
             return node.getAttribute(ATTRS.STATE);
@@ -52,14 +79,33 @@ function getLiveCodeNodes() {
           },
           prompt,
           code,
-          info,
-          output: outputNodes[currentOutputIndex],
+          withLoading,
+          setOutput,
         };
       })
       .filter((node) => node !== null);
   }
 
   return nodes;
+}
+
+function notEvaluatedUntilIndex(lines, index) {
+  let firstEvaluatedLine = lines
+    .slice(0, index)
+    .findIndex(({ state }) => state === STATE.NOT_EVALUATED);
+
+  const allEvaluated = firstEvaluatedLine === -1;
+  if (allEvaluated) {
+    firstEvaluatedLine = index;
+  }
+
+  return lines
+    .slice(firstEvaluatedLine, index + 1)
+    .filter(({ state }) => state !== STATE.ERROR);
+}
+
+function anyEvaluating(lines) {
+  return lines.some(({ state }) => state === STATE.EVALUATING);
 }
 
 async function initialize() {
@@ -69,56 +115,22 @@ async function initialize() {
   const nodes = getLiveCodeNodes();
 
   for (const [blockId, lines] of Object.entries(nodes)) {
-    lines.forEach(({ prompt, code, output }, index) => {
-      prompt.addEventListener("click", async () => {
-        if (lines.some(({ state }) => state === STATE.EVALUATING)) {
+    lines.forEach(({ prompt: currentLinePrompt }, index) => {
+      currentLinePrompt.addEventListener("click", async () => {
+        if (anyEvaluating(lines)) {
           return;
         }
 
-        let firstEvaluatedLine = lines
-          .slice(0, index)
-          .findIndex(({ state }) => state === STATE.NOT_EVALUATED);
-
-        const allEvaluated = firstEvaluatedLine === -1;
-        if (allEvaluated) {
-          firstEvaluatedLine = index;
-        }
-
-        const toEval = lines
-          .slice(firstEvaluatedLine, index + 1)
-          .filter(({ state }) => state !== STATE.ERROR);
+        const toEval = notEvaluatedUntilIndex(lines, index);
         for (const line of toEval) {
           await setLineState(line, STATE.NOT_EVALUATED);
         }
-
-        let timeout = null;
         for (const line of toEval) {
-          line.info.textContent = "↺";
-          line.info.classList.add("info-running");
+          const opts = { blockId };
+          const evalFn = async () => setLineState(line, STATE.EVALUATING, opts);
 
-          const { dtMs, result, error } = await setLineState(
-            line,
-            STATE.EVALUATING,
-            { blockId },
-          );
-
-          line.info.classList.remove("info-running");
-          line.info.textContent = "";
-
-          line.info.textContent = `(${dtMs.toFixed(2)} ms)`;
-
-          clearTimeout(timeout);
-          timeout = setTimeout(() => {
-            output.classList.remove("output-error");
-            output.classList.remove("output-initial");
-
-            if (error) {
-              output.classList.add("output-error");
-              output.textContent = `Error: ${result}`;
-            } else {
-              output.textContent = result;
-            }
-          }, RESULT_DELAY_MS);
+          const { result, error } = await line.withLoading(evalFn);
+          line.setOutput(result, error);
         }
       });
     });

@@ -14,6 +14,9 @@ defmodule ExDoc.Markdown.CodeBlock do
       "...> " <> line, {:input, acc} ->
         {:cont, {:input, [line | acc]}}
 
+      "# " <> line, {:comment, acc} ->
+        {:cont, {:comment, [line | acc]}}
+
       "# " <> line, {type, acc} ->
         {:cont, {type, reverse_join.(acc)}, {:comment, [line]}}
 
@@ -30,54 +33,20 @@ defmodule ExDoc.Markdown.CodeBlock do
     |> String.split("\n", trim: true)
     |> Enum.chunk_while({nil, []}, chunk_fun, after_fun)
     |> Enum.drop(1)
+    |> maybe_add_output_last()
+    |> tap(&IO.inspect/1)
   end
 
-  # first line
-  defp transition(line, nil, :iex, acc) do
-    {"", "", []} = acc
-    {:iex, {line, "", []}}
+  defp maybe_add_output_last([]) do
+    [output: "Output"]
   end
 
-  # flush previous prompt (and output if found)
-  defp transition(line, :iex, :iex, acc) do
-    {prompt, "", groups} = acc
-    {:iex, {line, "", [prompt | groups]}}
-  end
+  defp maybe_add_output_last(chunks) do
+    [last | rest] = Enum.reverse(chunks)
 
-  defp transition(line, :cont, :iex, acc) do
-    {prompt, "", groups} = acc
-    {:iex, {line, "", [prompt | groups]}}
-  end
-
-  defp transition(line, :out, :iex, acc) do
-    {prompt, output, groups} = acc
-    {:iex, {line, "", [{prompt, output} | groups]}}
-  end
-
-  # iex -> out
-  defp transition(line, :iex, :out, acc) do
-    {prompt, "", groups} = acc
-    {:out, {prompt, line, groups}}
-  end
-
-  # iex with cont
-  defp transition(line, :iex, :cont, acc) do
-    {prompt, "", groups} = acc
-    {:cont, {"#{prompt}\n#{line}", "", groups}}
-  end
-
-  defp transition(line, :cont, :cont, acc) do
-    {prompt, "", groups} = acc
-    {:cont, {"#{prompt}\n#{line}", "", groups}}
-  end
-
-  defp transition(line, :cont, :out, acc) do
-    {prompt, "", groups} = acc
-    {:out, {prompt, line, groups}}
-  end
-
-  defp transition(line, :out, :out, acc) do
-    {prompt, output, groups} = acc
-    {:out, {prompt, "#{output}\n#{line}", groups}}
+    case last do
+      {:output, _out} -> chunks
+      _ -> Enum.reverse([{:output, "Output"}, last | rest])
+    end
   end
 end
