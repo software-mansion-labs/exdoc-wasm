@@ -45,7 +45,12 @@ Promise.all(
     await fsExtra.emptyDir(options.outdir);
 
     const htmlOutdir = path.resolve("../formatters/html/dist");
-    for (const file of ["js/AtomVM.js", "js/AtomVM.wasm", "eval.avm"]) {
+    for (const file of [
+      "js/avm-eval.js",
+      "js/AtomVM.js",
+      "js/AtomVM.wasm",
+      "eval.avm",
+    ]) {
       await fs.copyFile(
         path.resolve(file),
         path.resolve(htmlOutdir, path.basename(file)),

@@ -12,179 +12,199 @@ const STATE = {
   ERROR: "ERROR",
   EVALUATING: "EVALUATING",
 };
-
-const MESSAGE = {
-  EVAL_ELIXIR: "elixir",
-  EVAL_ERLANG: "erlang",
-};
+const EVAL_TIMEOUT_MS = 10 * 1_000;
+const AVM_IFRAME = document.getElementById("evalFrame").contentWindow;
 
 const RESULT_DELAY_MS = 120;
 
-let AvmEval;
+let messageId = 0;
+const controller = new AbortController();
+
 window.addEventListener("exdoc:loaded", initialize);
 
-function getLiveCodeNodes() {
+class Output {
+  constructor(node) {
+    this._node = node;
+  }
+
+  display({ result, error }) {
+    this._node.classList.remove("output-error");
+    this._node.classList.remove("output-initial");
+
+    if (error) {
+      this._node.classList.add("output-error");
+      this._node.textContent = `Error: ${result}`;
+    } else {
+      this._node.textContent = result;
+    }
+  }
+}
+
+class Info {
+  constructor(node, controller) {
+    this._node = node;
+    this._controller = controller;
+    this._onClick = this._onClick.bind(this);
+  }
+
+  startLoading() {
+    this._node.textContent = "↺";
+    this._node.classList.add("info-running");
+    this._node.addEventListener("click", this._onClick);
+  }
+
+  finishLoading(ms) {
+    this._node.classList.remove("info-running");
+    this._node.removeEventListener("click", this._onClick);
+
+    if (ms === null) {
+      this._node.textContent = "(error)";
+    } else {
+      this._node.textContent = `(${ms.toFixed(2)} ms)`;
+    }
+  }
+
+  _onClick() {
+    this._controller.abort();
+  }
+}
+
+function getLiveCodeNodes(controller) {
+  const CODE_BLOCK_SELECTOR = `pre[${ATTRS.ID}]`;
+  const OUTPUT_SELECTOR = `*[${ATTRS.TYPE}="output"]`;
+
   const nodes = {};
-
-  for (const node of qsAll(`pre[${ATTRS.ID}]`)) {
-    const id = node.getAttribute(ATTRS.ID);
+  for (const container of qsAll(CODE_BLOCK_SELECTOR)) {
+    const id = container.getAttribute(ATTRS.ID);
     let currentOutputIndex = 0;
-    const outputNodes = node.querySelectorAll(`*[${ATTRS.TYPE}="output"]`);
-    nodes[id] = [...node.children]
-      .map((node) => {
-        if (node.getAttribute(ATTRS.TYPE) === "comment") {
-          return null;
-        }
-        if (node.getAttribute(ATTRS.TYPE) === "output") {
-          ++currentOutputIndex;
-          return null;
-        }
+    const outputs = [...container.querySelectorAll(OUTPUT_SELECTOR)].map(
+      (node) => new Output(node),
+    );
 
-        const prompt = node.children[0];
-        const code = node.children[1];
-        const info = node.children[2];
-        const output = outputNodes[currentOutputIndex];
+    const inputs = [];
+    for (const node of container.children) {
+      const isComment = node.getAttribute(ATTRS.TYPE) === "comment";
+      const isOutput = node.getAttribute(ATTRS.TYPE) === "output";
+      if (isComment) {
+        continue;
+      }
+      if (isOutput) {
+        ++currentOutputIndex;
+        continue;
+      }
 
-        function setOutput(result, error) {
-          output.classList.remove("output-error");
-          output.classList.remove("output-initial");
+      const code = node.children[1].textContent.trim();
+      const prompt = node.children[0];
+      const info = new Info(node.children[2], controller);
+      const output = outputs[currentOutputIndex];
 
-          if (error) {
-            output.classList.add("output-error");
-            output.textContent = `Error: ${result}`;
-          } else {
-            output.textContent = result;
-          }
-        }
-
-        async function withLoading(fn) {
-          info.textContent = "↺";
-          info.classList.add("info-running");
-
-          const result = await fn();
-
-          info.classList.remove("info-running");
-          info.textContent = "";
-          info.textContent = `(${result.dtMs.toFixed(2)} ms)`;
-
-          return result;
-        }
-
-        return {
-          get state() {
-            return node.getAttribute(ATTRS.STATE);
-          },
-          set state(newState) {
-            node.setAttribute(ATTRS.STATE, newState);
-          },
-          prompt,
-          code,
-          withLoading,
-          setOutput,
-        };
-      })
-      .filter((node) => node !== null);
+      inputs.push({
+        get state() {
+          return node.getAttribute(ATTRS.STATE);
+        },
+        set state(newState) {
+          node.setAttribute(ATTRS.STATE, newState);
+        },
+        set onClick(fn) {
+          prompt.addEventListener("click", fn);
+        },
+        code: code !== "" ? code : null,
+        info,
+        output,
+      });
+    }
+    nodes[id] = inputs;
   }
 
   return nodes;
 }
 
-function notEvaluatedUntilIndex(lines, index) {
-  let firstEvaluatedLine = lines
-    .slice(0, index)
-    .findIndex(({ state }) => state === STATE.NOT_EVALUATED);
-
-  const allEvaluated = firstEvaluatedLine === -1;
-  if (allEvaluated) {
-    firstEvaluatedLine = index;
-  }
-
-  return lines
-    .slice(firstEvaluatedLine, index + 1)
-    .filter(({ state }) => state !== STATE.ERROR);
-}
-
-function anyEvaluating(lines) {
-  return lines.some(({ state }) => state === STATE.EVALUATING);
-}
-
 async function initialize() {
-  AvmEval = Module;
   // FIXME: detect if runtime failed for whatever reason (e.g. failed loading .avm, too big .avm, etc)
 
-  const nodes = getLiveCodeNodes();
+  const nodes = getLiveCodeNodes(controller);
 
-  for (const [blockId, lines] of Object.entries(nodes)) {
-    lines.forEach(({ prompt: currentLinePrompt }, index) => {
-      currentLinePrompt.addEventListener("click", async () => {
-        if (anyEvaluating(lines)) {
+  for (const [blockId, inputs] of Object.entries(nodes)) {
+    for (let i = 0; i < inputs.length; ++i) {
+      const input = inputs[i];
+      input.onClick = async () => {
+        if (anyEvaluating(inputs)) {
           return;
         }
 
-        const toEval = notEvaluatedUntilIndex(lines, index);
-        for (const line of toEval) {
-          await setLineState(line, STATE.NOT_EVALUATED);
+        const toEval = notEvaluatedUntilIndex(inputs, i);
+        // reset all to re-evaluate
+        for (const input of toEval) {
+          input.state = STATE.NOT_EVALUATED;
         }
-        for (const line of toEval) {
-          const opts = { blockId };
-          const evalFn = async () => setLineState(line, STATE.EVALUATING, opts);
 
-          const { result, error } = await line.withLoading(evalFn);
-          line.setOutput(result, error);
+        for (const input of toEval) {
+          input.state = STATE.EVALUATING;
+          input.info.startLoading();
+          const { result, dtMs, error } = await evalCode(controller, {
+            code: input.code,
+            blockId,
+            language: "elixir",
+          });
+          input.info.finishLoading(dtMs);
+          input.state = error ? STATE.ERROR : STATE.EVALUATED;
+          input.output.display({ result, error });
         }
-      });
-    });
-  }
-}
-
-async function setLineState(line, state, opts) {
-  line.state = state;
-
-  // Other states don't have any side-effects except setting attribute
-  if (state === STATE.EVALUATING) {
-    const { blockId } = opts;
-    const code = line.code.textContent.trim();
-    const result = await evalCode(code, "elixir", blockId);
-
-    if (result.error) {
-      await setLineState(line, "ERROR");
-    } else {
-      await setLineState(line, "EVALUATED");
+      };
     }
-    return result;
   }
-  return null;
 }
 
-async function evalCode(code, language, blockId) {
-  if (code === "") {
-    return;
-  }
+async function evalCode(controller, { code, blockId, language }) {
+  const id = ++messageId;
 
-  let command;
-  if (language === "elixir") {
-    command = `${MESSAGE.EVAL_ELIXIR}:${blockId}:${code}`;
-  } else {
-    command = `${MESSAGE.EVAL_ERLANG}:${blockId}:${code}`;
-  }
+  return new Promise((resolve, _reject) => {
+    const signal = controller.signal;
 
-  const { result, dtMs, error } = await profile(async () =>
-    AvmEval.call("main", command),
-  );
-  return { dtMs, result, error };
+    const abortHandler = () => {
+      controller.signal.removeEventListener("abort", abortHandler);
+      resolve({ result: "Aborted", dtMs: null, error: true });
+    };
+
+    const timeout = setTimeout(() => {
+      controller.abort();
+      resolve({ result: "Timeout", dtMs: null, error: true });
+    }, EVAL_TIMEOUT_MS);
+
+    const handler = ({ data }) => {
+      if (data?.id === id) {
+        clearTimeout(timeout);
+        window.removeEventListener("message", handler, { signal });
+        const { result, dtMs, error } = data.value;
+        resolve({ result, dtMs, error });
+      }
+    };
+
+    signal.addEventListener("abort", abortHandler);
+    window.addEventListener("message", handler, false);
+    AVM_IFRAME.postMessage({
+      type: "eval",
+      id,
+      value: { code, blockId, language },
+    });
+  });
 }
 
-async function profile(fn) {
-  const t = performance.now();
-  let result = null;
-  let error = false;
-  try {
-    result = await fn();
-  } catch (e) {
-    result = e;
-    error = true;
-  }
-  const dtMs = performance.now() - t;
+function notEvaluatedUntilIndex(inputs, index) {
+  let firstToEvaluate = inputs
+    .slice(0, index)
+    .findIndex(({ state }) => state === STATE.NOT_EVALUATED);
 
-  return { result, dtMs, error };
+  const allEvaluated = firstToEvaluate === -1;
+  if (allEvaluated) {
+    firstToEvaluate = index;
+  }
+
+  return inputs
+    .slice(firstToEvaluate, index + 1)
+    .filter(({ state, code }) => state !== STATE.ERROR && code !== null);
+}
+
+function anyEvaluating(inputs) {
+  return inputs.some(({ state }) => state === STATE.EVALUATING);
 }

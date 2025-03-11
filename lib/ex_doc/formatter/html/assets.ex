@@ -14,7 +14,8 @@ defmodule ExDoc.Formatter.HTML.Assets do
 
   defp dist_avm_bundle(), do: embed_pattern("dist/eval.avm")
   defp dist_wasm(), do: embed_pattern("dist/AtomVM.wasm")
-  defp dist_avm(), do: embed_pattern("dist/AtomVM.js")
+  defp dist_avm_js(), do: embed_pattern("dist/AtomVM.js")
+  defp dist_avm_eval_js(), do: embed_pattern("dist/avm-eval.js")
   defp dist_js(), do: embed_pattern("dist/html-*.js")
   defp dist_inline_js(), do: embed_pattern("dist/inline_html-*.js")
   defp dist_css(:elixir), do: embed_pattern("dist/html-elixir-*.css")
@@ -25,7 +26,7 @@ defmodule ExDoc.Formatter.HTML.Assets do
 
   def dist(proglang) do
     dist_js() ++
-      dist_wasm() ++ dist_avm_bundle() ++ dist_avm() ++ dist_css(proglang) ++ dist_license()
+      dist_wasm() ++ dist_avm_bundle() ++ dist_avm_js() ++ dist_avm_eval_js() ++ dist_css(proglang) ++ dist_license()
   end
 
   def fonts, do: embed_pattern("dist/*.woff2")
@@ -37,8 +38,9 @@ defmodule ExDoc.Formatter.HTML.Assets do
   ## Filenames
 
   def js_filename(), do: dist_js() |> extract_filename!()
+  def avm_eval_js_filename(), do: dist_avm_eval_js() |> extract_filename!()
   def avm_bundle_filename(), do: dist_avm_bundle() |> extract_filename!()
-  def avm_filename(), do: dist_avm() |> extract_filename!()
+  def avm_js_filename(), do: dist_avm_js() |> extract_filename!()
   def css_filename(language), do: dist_css(language) |> extract_filename!()
 
   ## Helpers

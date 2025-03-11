@@ -86,6 +86,7 @@
 .content-inner pre.elixir div.line > .info-running {
     font-size: 1.5em;
     animation: fadeIn 1s ease infinite alternate;
+    cursor: pointer;
 }
 
 .content-inner code {
