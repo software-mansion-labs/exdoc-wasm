@@ -27,13 +27,15 @@ class Output {
     this._node = node;
   }
 
-  display({ result, error }) {
+  display({ result, error, output }) {
     this._node.classList.remove("output-error");
     this._node.classList.remove("output-initial");
 
     if (error) {
       this._node.classList.add("output-error");
       this._node.textContent = `Error: ${result}`;
+    } else if (output.length > 0) {
+      this._node.textContent = result + `\n\nOutput:\n${output.join("\n")}\n`;
     } else {
       this._node.textContent = result;
     }
@@ -141,14 +143,14 @@ async function initialize() {
         for (const input of toEval) {
           input.state = STATE.EVALUATING;
           input.info.startLoading();
-          const { result, dtMs, error } = await evalCode(controller, {
+          const { result, dtMs, error, output } = await evalCode(controller, {
             code: input.code,
             blockId,
             language: "elixir",
           });
           input.info.finishLoading(dtMs);
           input.state = error ? STATE.ERROR : STATE.EVALUATED;
-          input.output.display({ result, error });
+          input.output.display({ result, error, output });
         }
       };
     }
@@ -163,20 +165,25 @@ async function evalCode(controller, { code, blockId, language }) {
 
     const abortHandler = () => {
       controller.signal.removeEventListener("abort", abortHandler);
-      resolve({ result: "Aborted", dtMs: null, error: true });
+      resolve({ result: "Aborted", dtMs: null, error: true, output: [] });
     };
 
     const timeout = setTimeout(() => {
       controller.abort();
-      resolve({ result: "Timeout", dtMs: null, error: true });
+      resolve({ result: "Timeout", dtMs: null, error: true, output: [] });
     }, EVAL_TIMEOUT_MS);
 
+    const output = [];
     const handler = ({ data }) => {
+      if (data.type === "log") {
+        output.push(data.value);
+      }
+
       if (data?.id === id) {
         clearTimeout(timeout);
         window.removeEventListener("message", handler, { signal });
         const { result, dtMs, error } = data.value;
-        resolve({ result, dtMs, error });
+        resolve({ result, dtMs, error, output });
       }
     };
 

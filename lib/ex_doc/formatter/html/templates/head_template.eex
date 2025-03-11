@@ -25,8 +25,8 @@
     <iframe id="evalFrame"
       srcdoc='<html>
           <meta name="avm-bundle-name" content="<%= Assets.avm_bundle_filename() %>">
-          <script async src="dist/<%= Assets.avm_eval_js_filename() %>" defer></script>
-          <script async src="dist/<%= Assets.avm_js_filename() %>" defer></script>
+          <script src="dist/<%= Assets.avm_eval_js_filename() %>" defer></script>
+          <script src="dist/<%= Assets.avm_js_filename() %>" defer></script>
         </html>'
       style="width: 0; height: 0; visibility: hidden">
     </iframe>
