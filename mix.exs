@@ -43,11 +43,11 @@ defmodule ExDoc.Mixfile do
       {:earmark_parser, "~> 1.4.42"},
       {:makeup_elixir, "~> 0.14 or ~> 1.0"},
       {:makeup_erlang, "~> 0.1 or ~> 1.0"},
-      {:popcorn, path: "../../.."},
+      {:popcorn, path: "../../..", runtime: false},
       # Add other makeup lexers as optional for the executable
       {:makeup_c, ">= 0.1.0", optional: true},
       {:makeup_html, ">= 0.1.0", optional: true},
-      {:jason, "~> 1.2"},
+      {:jason, "~> 1.2", runtime: false},
       {:floki, "~> 0.0", only: :test},
       {:easyhtml, "~> 0.0", only: :test}
     ]
