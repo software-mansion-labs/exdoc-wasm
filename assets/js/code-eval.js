@@ -1,4 +1,5 @@
 import { qsAll } from "./helpers";
+import { Popcorn } from "./wasm/popcorn.js";
 
 const ATTRS = {
   ID: "data-code-id",
@@ -13,14 +14,8 @@ const STATE = {
   EVALUATING: "EVALUATING",
 };
 
-const MESSAGE = {
-  EVAL_ELIXIR: "elixir",
-  EVAL_ERLANG: "erlang",
-};
-
 const RESULT_DELAY_MS = 120;
 
-let AvmEval;
 window.addEventListener("exdoc:loaded", initialize);
 
 function getLiveCodeNodes() {
@@ -63,7 +58,12 @@ function getLiveCodeNodes() {
 }
 
 async function initialize() {
-  AvmEval = Module;
+  const popcorn = await Popcorn.init({
+    bundlePath: "wasm/eval.avm",
+    debug: true,
+    onStdout: console.log,
+    onStderr: console.error,
+  });
   // FIXME: detect if runtime failed for whatever reason (e.g. failed loading .avm, too big .avm, etc)
 
   const nodes = getLiveCodeNodes();
@@ -99,7 +99,7 @@ async function initialize() {
           const { dtMs, result, error } = await setLineState(
             line,
             STATE.EVALUATING,
-            { blockId },
+            { blockId, popcorn },
           );
 
           line.info.classList.remove("info-running");
@@ -130,9 +130,9 @@ async function setLineState(line, state, opts) {
 
   // Other states don't have any side-effects except setting attribute
   if (state === STATE.EVALUATING) {
-    const { blockId } = opts;
+    const { blockId, popcorn } = opts;
     const code = line.code.textContent.trim();
-    const result = await evalCode(code, "elixir", blockId);
+    const result = await evalCode(popcorn, code, "elixir", blockId);
 
     if (result.error) {
       await setLineState(line, "ERROR");
@@ -144,35 +144,23 @@ async function setLineState(line, state, opts) {
   return null;
 }
 
-async function evalCode(code, language, blockId) {
+async function evalCode(
+  /** @type {Popcorn} */ popcorn,
+  code,
+  language,
+  blockId,
+) {
   if (code === "") {
     return;
   }
+  const action = language === "elixir" ? "eval_elixir" : "eval_erlang";
 
-  let command;
-  if (language === "elixir") {
-    command = `${MESSAGE.EVAL_ELIXIR}:${blockId}:${code}`;
-  } else {
-    command = `${MESSAGE.EVAL_ERLANG}:${blockId}:${code}`;
-  }
-
-  const { result, dtMs, error } = await profile(async () =>
-    AvmEval.call("main", command),
-  );
-  return { dtMs, result, error };
-}
-
-async function profile(fn) {
-  const t = performance.now();
-  let result = null;
-  let error = false;
   try {
-    result = await fn();
+    const { data, durationMs } = await popcorn.call([action, blockId, code], {
+      timeoutMs: 10_000,
+    });
+    return { dtMs: durationMs, result: data, error: false };
   } catch (e) {
-    result = e;
-    error = true;
+    return { dtMs: e.durationMs, result: e.error, error: true };
   }
-  const dtMs = performance.now() - t;
-
-  return { result, dtMs, error };
 }

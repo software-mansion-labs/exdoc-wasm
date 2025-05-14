@@ -43,9 +43,17 @@ Promise.all(
   formatters.map(async ({ formatter, ...options }) => {
     // Clean outdir.
     await fsExtra.emptyDir(options.outdir);
-
-    const htmlOutdir = path.resolve("../formatters/html/dist");
-    for (const file of ["js/AtomVM.js", "js/AtomVM.wasm", "eval.avm"]) {
+    try {
+      await fs.mkdir(path.resolve("../formatters/html/wasm/"));
+    } catch (_e) {}
+    const htmlOutdir = path.resolve("../formatters/html/wasm/");
+    for (const file of [
+      "js/wasm/AtomVM.mjs",
+      "js/wasm/AtomVM.wasm",
+      "js/wasm/popcorn.js",
+      "js/wasm/popcorn_iframe.js",
+      "js/wasm/eval.avm",
+    ]) {
       await fs.copyFile(
         path.resolve(file),
         path.resolve(htmlOutdir, path.basename(file)),

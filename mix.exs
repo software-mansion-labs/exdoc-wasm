@@ -14,7 +14,7 @@ defmodule ExDoc.Mixfile do
       package: package(),
       escript: escript(),
       elixirc_paths: elixirc_paths(Mix.env()),
-      compilers: Mix.compilers() ++ [:fission_lib],
+      compilers: Mix.compilers() ++ [:popcorn],
       source_url: @source_url,
       test_elixirc_options: [docs: true, debug_info: true],
       test_ignore_filters: [&String.starts_with?(&1, "test/fixtures/")],
@@ -43,11 +43,11 @@ defmodule ExDoc.Mixfile do
       {:earmark_parser, "~> 1.4.42"},
       {:makeup_elixir, "~> 0.14 or ~> 1.0"},
       {:makeup_erlang, "~> 0.1 or ~> 1.0"},
-      {:fission_lib, path: "../elixir-atom-vm/elixir-wasm/fission_lib", runtime: false},
+      {:popcorn, path: "../../.."},
       # Add other makeup lexers as optional for the executable
       {:makeup_c, ">= 0.1.0", optional: true},
       {:makeup_html, ">= 0.1.0", optional: true},
-      {:jason, "~> 1.2", only: :test},
+      {:jason, "~> 1.2"},
       {:floki, "~> 0.0", only: :test},
       {:easyhtml, "~> 0.0", only: :test}
     ]
@@ -55,11 +55,12 @@ defmodule ExDoc.Mixfile do
 
   defp aliases do
     [
-      build: ["cmd --cd assets npm run build", "compile --force", &docs/1],
+      build: ["cmd --cd assets npm run build", "compile --force"],
       clean: [&clean_test_fixtures/1, "clean"],
       fix: ["format", "cmd --cd assets npm run lint:fix"],
       lint: ["format --check-formatted", "cmd --cd assets npm run lint"],
-      setup: ["deps.get", "cmd --cd assets npm install"]
+      setup: ["deps.get", "cmd --cd assets npm install"],
+      build_wasm: "popcorn.build_runtime --target wasm --out-dir assets/js/wasm"
     ]
   end
 
